@@ -38,8 +38,9 @@ export const proxy = (context: Omit<HttpProxyOptions, "onProxyRes" | "onProxyReq
     const sid = ctx.cookies.get(sidKey) || "";
     const session = await redis.get(sid)
     const sessionJSON: Record<string, unknown> = session && JSON.parse(session) || {}
+    const whitelist = ctx.state.sessionOptions?.whitelist || []
 
-    if(session) {
+    if(session || whitelist.includes(ctx.path)) {
         const nextProxyReq  = async (proxyReq: ClientRequest, req: Request, res: Response) =>{
              await onProxyReq?.(proxyReq,req, res, sessionJSON);
         }
@@ -52,7 +53,7 @@ export const proxy = (context: Omit<HttpProxyOptions, "onProxyRes" | "onProxyReq
                 return body
             })
 
-        const  executeProxy = () => c2k(createProxyMiddleware({...restContext,onProxyReq: nextProxyReq,onProxyRes:nextProxyRes}, options) as ConnectMiddleware)(ctx, next);
+        const executeProxy = () => c2k(createProxyMiddleware({...restContext, onProxyReq: nextProxyReq, onProxyRes: nextProxyRes}, options) as ConnectMiddleware)(ctx, next);
         
         if((ctx.state?.csrfOptions?.whitelist||[]).includes(ctx.path)) {
             return executeProxy()
@@ -118,6 +119,7 @@ interface Options {
     appid: string;
     lang?: string;
     region?: string;
+    accessToken?: string;
     session?: Record<string, any>;
 }
 
@@ -126,7 +128,6 @@ export const hightway = (options: Options, proxyReq:ClientRequest ) => {
     const timestamp = new Date().getTime();
     const accessToken = session?.auth?.access_token as string;
     const sign = hmacSHA256(clientId + accessToken + timestamp, secret).toUpperCase();
-    proxyReq.method = "POST",
     proxyReq.setHeader("sign",sign);
     proxyReq.setHeader("access_token", accessToken);
     proxyReq.setHeader("t",timestamp.toString());
@@ -138,9 +139,9 @@ export const hightway = (options: Options, proxyReq:ClientRequest ) => {
 }
 
 export const radar = (options: Options, proxyReq: ClientRequest ) => {
-    const {clientId, secret, appid, lang="zh", region="AY"} = options;
+    const {clientId, secret, appid, lang="zh", region="AY",accessToken=""} = options;
     const timestamp = new Date().getTime();
-    const sign = hmacSHA256(clientId + timestamp, secret).toUpperCase();
+    const sign = hmacSHA256(clientId + accessToken + timestamp, secret).toUpperCase();
     proxyReq.setHeader("sign",sign);
     proxyReq.setHeader("client_id", clientId);
     proxyReq.setHeader("sign_method", "HMAC-SHA256");
@@ -148,4 +149,5 @@ export const radar = (options: Options, proxyReq: ClientRequest ) => {
     proxyReq.setHeader("region", region);
     proxyReq.setHeader("t",timestamp.toString());
     proxyReq.setHeader("x-fe-appid", appid);
+    proxyReq.setHeader("access_token", accessToken);
 }

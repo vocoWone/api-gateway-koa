@@ -38,4 +38,4 @@ TODO
 TODO
 
 ## debug
-- docer redis, medis, posman
+- docker redis(medis), postman

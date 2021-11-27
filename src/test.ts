@@ -1,5 +1,5 @@
 import{start, Options} from "./index";
-import {proxy, saveSession, radar, hightway} from "./kit";
+import {proxy, radar, hightway, saveSession} from "./kit";
 import axios from 'axios';
 
 const clientId = "xxx";
@@ -9,7 +9,7 @@ const keys = ['keys', 'keykeys'];
 const sidKey = "i-sid";
 const csrfOptions = {
     key:"csrf-token",
-    whitelist: ["/health", "/api/token", "/api/login", "/api/get-device-count"]
+    whitelist: ["/health", "/api/token", "/api/login",  "/api/get-device-count"]
 };
 
 const sidCookieOption =  {
@@ -91,7 +91,7 @@ const options: Options = {
                     changeOrigin: true,
                     onProxyReq: (proxyReq) => {
                         proxyReq.method = "POST";
-                        radar({clientId, secret, appid: "estate-data"}, proxyReq);
+                        radar({clientId, secret, appid: "estate-data", accessToken: tokenResponse?.data?.result?.access_token}, proxyReq);
                     },
                     onProxyRes: async (_proxyRes, _req, _res, body?: Record<string, unknown>) => {
                         if(body?.success){
@@ -113,7 +113,10 @@ const options: Options = {
             timeout: 10000,
             target: apiURL,
             changeOrigin: true,
-            onProxyReq: (proxyReq, _req, _res, session?: Record<string, any>) => hightway({session,clientId, secret, appid: "estate-data"}, proxyReq),
+            onProxyReq: (proxyReq, _req, _res, session?: Record<string, any>) => {
+                proxyReq.method = "POST";
+                hightway({session,clientId, secret, appid: "estate-data"}, proxyReq)
+        },
             pathRewrite: (path) => path.replace("/api/get-device-count", "/v1.0/community/steward/device/count/get"),
         }));
     }
